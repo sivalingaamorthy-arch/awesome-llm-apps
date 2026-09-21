@@ -74,7 +74,7 @@ if serp_api_key:
     researcher = Agent(
         name="Researcher",
         role="Searches for travel destinations, activities, and accommodations based on user preferences",
-        model=Ollama(id="llama3.2"),
+        model=Ollama(id="llama3.2:1b"),
         description=dedent(
             """\
         You are a world-class travel researcher. Given a travel destination and the number of days the user wants to travel for,
@@ -94,7 +94,7 @@ if serp_api_key:
     planner = Agent(
         name="Planner",
         role="Generates a draft itinerary based on user preferences and research results",
-        model=Ollama(id="llama3.2"),
+        model=Ollama(id="llama3.2:1b"),
         description=dedent(
             """\
         You are a senior travel planner. Given a travel destination, the number of days the user wants to travel for, and a list of research results,
