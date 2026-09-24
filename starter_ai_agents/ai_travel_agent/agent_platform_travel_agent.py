@@ -1,12 +1,14 @@
+import os
+import re
+from datetime import datetime, timedelta
 from textwrap import dedent
+
+import streamlit as st
 from agno.agent import Agent
+from agno.models.google import Gemini
 from agno.run.agent import RunOutput
 from agno.tools.serpapi import SerpApiTools
-import streamlit as st
-import re
-from agno.models.ollama import Ollama
 from icalendar import Calendar, Event
-from datetime import datetime, timedelta
 
 
 def generate_ics_content(plan_text:str, start_date: datetime = None) -> bytes:
@@ -60,21 +62,38 @@ def generate_ics_content(plan_text:str, start_date: datetime = None) -> bytes:
 
 
 # Set up the Streamlit app
-st.title("AI Travel Planner using Llama-3.2 ")
-st.caption("Plan your next adventure with AI Travel Planner by researching and planning a personalized itinerary on autopilot using local Llama-3")
+st.title("AI Travel Planner using Gemini")
+st.caption("Plan your next adventure with AI Travel Planner by researching and planning a personalized itinerary on autopilot using Gemini")
 
 # Initialize session state to store the generated itinerary
 if 'itinerary' not in st.session_state:
     st.session_state.itinerary = None
 
-# Get SerpAPI key from the user
+# Get API keys from the environment or the user
+google_api_key = os.getenv("GOOGLE_API_KEY") or st.text_input(
+    "Enter Google AI API Key",
+    type="password",
+    help="Use the account-bound key restricted to Agent Platform API.",
+)
+google_project = os.getenv("GOOGLE_CLOUD_PROJECT") or st.text_input(
+    "Enter Google Cloud Project ID",
+    value="sixth-window-107714",
+    help="Use the project that owns the account-bound API key.",
+)
+google_location = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 serp_api_key = st.text_input("Enter Serp API Key for Search functionality", type="password")
 
-if serp_api_key:
+if google_api_key and serp_api_key:
     researcher = Agent(
         name="Researcher",
         role="Searches for travel destinations, activities, and accommodations based on user preferences",
-        model=Ollama(id="llama3.2"),
+        model=Gemini(
+            id="gemini-2.5-flash",
+            api_key=google_api_key,
+            vertexai=True,
+            project_id=google_project,
+            location=google_location,
+        ),
         description=dedent(
             """\
         You are a world-class travel researcher. Given a travel destination and the number of days the user wants to travel for,
@@ -94,7 +113,13 @@ if serp_api_key:
     planner = Agent(
         name="Planner",
         role="Generates a draft itinerary based on user preferences and research results",
-        model=Ollama(id="llama3.2"),
+        model=Gemini(
+            id="gemini-2.5-flash",
+            api_key=google_api_key,
+            vertexai=True,
+            project_id=google_project,
+            location=google_location,
+        ),
         description=dedent(
             """\
         You are a senior travel planner. Given a travel destination, the number of days the user wants to travel for, and a list of research results,

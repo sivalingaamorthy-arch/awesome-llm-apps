@@ -29,9 +29,26 @@ pip install -r requirements.txt
 
 - Sign up for an [SerpAPI account](https://serpapi.com/) and obtain your API key.
 
-5. Run the Streamlit App
+5. Configure Gemini Agent Platform
+
+Set the Google API key you created for the Agent Platform API in your shell:
+
+```bash
+export GOOGLE_API_KEY="your-google-api-key"
+export GOOGLE_CLOUD_PROJECT="sixth-window-107714"
+export GOOGLE_CLOUD_LOCATION="global"
+```
+
+The app uses Agno's `Gemini` model with Vertex AI / Agent Platform and `gemini-2.5-flash`. Use the Google Cloud project that owns your account-bound Agent Platform API key. You can also enter the API key and project ID directly in the app if the environment variables are not set.
+
+6. Run the Streamlit App
 ```bash
 streamlit run travel_agent.py
+```
+
+For the Gemini Agent Platform version:
+```bash
+streamlit run agent_platform_travel_agent.py
 ```
 
 For local LLM usage (with Ollama):
