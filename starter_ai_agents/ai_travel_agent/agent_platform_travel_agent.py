@@ -5,10 +5,13 @@ from textwrap import dedent
 
 import streamlit as st
 from agno.agent import Agent
+from dotenv import load_dotenv
 from agno.models.google import Gemini
 from agno.run.agent import RunOutput
 from agno.tools.serpapi import SerpApiTools
 from icalendar import Calendar, Event
+
+load_dotenv()
 
 
 def generate_ics_content(plan_text:str, start_date: datetime = None) -> bytes:
@@ -69,31 +72,60 @@ st.caption("Plan your next adventure with AI Travel Planner by researching and p
 if 'itinerary' not in st.session_state:
     st.session_state.itinerary = None
 
+use_vertex_ai = os.getenv("USE_VERTEX_AI", "false").strip().lower() in {"1", "true", "yes"}
+DEFAULT_GEMINI_MODEL_ID = os.getenv("GOOGLE_MODEL_ID", "gemini-3.8-flash")
+st.caption("Vertex AI auth is optional. Leave it disabled to use a Google API key directly.")
+
+# Debug auth state for troubleshooting
+print(f"DEBUG: USE_VERTEX_AI={use_vertex_ai}")
+print(f"DEBUG: GOOGLE_API_KEY present={bool(os.getenv('GOOGLE_API_KEY'))}")
+print(f"DEBUG: GOOGLE_CLOUD_PROJECT present={bool(os.getenv('GOOGLE_CLOUD_PROJECT'))}")
+print(f"DEBUG: GOOGLE_MODEL_ID={DEFAULT_GEMINI_MODEL_ID}")
+
 # Get API keys from the environment or the user
-google_api_key = os.getenv("GOOGLE_API_KEY") or st.text_input(
+google_api_key = st.text_input(
     "Enter Google AI API Key",
     type="password",
+    value=os.getenv("GOOGLE_API_KEY", ""),
     help="Use the account-bound key restricted to Agent Platform API.",
 )
-google_project = os.getenv("GOOGLE_CLOUD_PROJECT") or st.text_input(
+google_project = st.text_input(
     "Enter Google Cloud Project ID",
-    value="sixth-window-107714",
-    help="Use the project that owns the account-bound API key.",
+    value=os.getenv("GOOGLE_CLOUD_PROJECT", ""),
+    help="Use the project that owns the account-bound API key when Vertex AI is enabled.",
 )
 google_location = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
-serp_api_key = st.text_input("Enter Serp API Key for Search functionality", type="password")
+serp_api_key = st.text_input(
+    "Enter Serp API Key for Search functionality",
+    type="password",
+    value=os.getenv("SERPAPI_API_KEY", ""),
+)
+
+
+def make_gemini_model():
+    if use_vertex_ai:
+        if not google_project:
+            raise ValueError("GOOGLE_CLOUD_PROJECT is required when USE_VERTEX_AI=true")
+        print("DEBUG: Creating Gemini model with Vertex AI auth")
+        return Gemini(
+            id=DEFAULT_GEMINI_MODEL_ID,
+            api_key=google_api_key,
+            vertexai=True,
+            project_id=google_project,
+            location=google_location,
+        )
+    print(f"DEBUG: Creating Gemini model with direct API key auth. API key length={len(google_api_key) if google_api_key else 0}")
+    return Gemini(
+        id=DEFAULT_GEMINI_MODEL_ID,
+        api_key=google_api_key,
+    )
+
 
 if google_api_key and serp_api_key:
     researcher = Agent(
         name="Researcher",
         role="Searches for travel destinations, activities, and accommodations based on user preferences",
-        model=Gemini(
-            id="gemini-2.5-flash",
-            api_key=google_api_key,
-            vertexai=True,
-            project_id=google_project,
-            location=google_location,
-        ),
+        model=make_gemini_model(),
         description=dedent(
             """\
         You are a world-class travel researcher. Given a travel destination and the number of days the user wants to travel for,
@@ -113,13 +145,7 @@ if google_api_key and serp_api_key:
     planner = Agent(
         name="Planner",
         role="Generates a draft itinerary based on user preferences and research results",
-        model=Gemini(
-            id="gemini-2.5-flash",
-            api_key=google_api_key,
-            vertexai=True,
-            project_id=google_project,
-            location=google_location,
-        ),
+        model=make_gemini_model(),
         description=dedent(
             """\
         You are a senior travel planner. Given a travel destination, the number of days the user wants to travel for, and a list of research results,
