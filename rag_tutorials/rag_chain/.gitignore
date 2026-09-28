@@ -1,0 +1,5 @@
+# Local Chroma vector database
+pharma_db/
+
+# Temporary storage for uploaded PDFs
+temp/
